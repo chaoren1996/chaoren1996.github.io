@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数理习题动画增强版</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #7f9cf5 0%, #a3bffa 100%); /* Softer gradient */
+            color: #333;
+            padding: 10px; /* Add some padding for very small screens */
+            box-sizing: border-box;
+        }
+
+        .page-container {
+            width: 100%; /* Full width on small screens */
+            max-width: 380px; /* Max width for the 9:16 container */
+        }
+
+        .aspect-ratio-enforcer {
+            position: relative;
+            width: 100%;
+            padding-top: calc(16 / 9 * 100%); /* Height is 16/9 of width */
+            background-color: #f8f9fa; /* Light background for the app area */
+            border-radius: 20px;
+            box-shadow: 0 10px 35px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        #app-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        header {
+            text-align: center;
+            color: #343a40;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            font-size: 1.4em; /* Adjusted for smaller container */
+            font-weight: 700;
+            margin: 0;
+            color: #1a202c; /* Darker heading */
+        }
+
+        #animationContainer {
+            flex-grow: 1;
+            position: relative;
+            background-color: #ffffff; /* White canvas background */
+            border-radius: 12px; /* Rounded corners for SVG area */
+            overflow: hidden; /* Important for SVG clipping */
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        #drawingCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #explanation {
+            padding: 12px 15px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            font-size: 0.85em; /* Adjusted */
+            text-align: center;
+            margin-top: 15px;
+            color: #495057;
+            min-height: 3.5em; /* Consistent height for text */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.5;
+            flex-shrink: 0;
+            font-weight: 500;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between; /* Better spacing for 3 buttons */
+            flex-shrink: 0;
+        }
+
+        button {
+            padding: 12px 10px; /* Slightly taller buttons */
+            flex-basis: 30%; /* Distribute space */
+            font-size: 0.9em; /* Adjusted */
+            font-weight: 500;
+            cursor: pointer;
+            background-color: #4A90E2; /* Primary blue */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #357ABD; /* Darker blue on hover */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        button:active:not(:disabled) {
+            transform: scale(0.97);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        button:disabled {
+            background-color: #c0c8d1; /* Softer disabled state */
+            color: #6c757d;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        button#resetBtn {
+            background-color: #6c757d; /* Different color for reset */
+        }
+        button#resetBtn:hover:not(:disabled) {
+            background-color: #5a6268;
+        }
+
+
+        /* SVG Element Styling & Animations */
+        rect, text {
+            transition-property: opacity, transform, width, x, fill, stroke, stroke-width;
+            transition-duration: 0.6s;
+            transition-timing-function: cubic-bezier(0.35, 0.9, 0.25, 1);
+        }
+
+        rect {
+            stroke: #6c757d; /* Default stroke */
+            stroke-width: 1.5; /* Default stroke width */
+            rx: 4; /* Rounded corners for rects */
+            ry: 4;
+        }
+
+        text {
+            font-size: 16px; /* Base font size in SVG, adjust based on viewBox */
+            fill: #212529;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            font-weight: 500;
+        }
+        
+        .label-text { /* For labels like "元", "9", "7" */
+            font-size: 14px;
+        }
+        .calculation-text {
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .final-answer-text {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .anim-initial { /* State before animation */
+            opacity: 0;
+            transform: scale(0.7) translateY(10px);
+        }
+
+        .anim-fly-in-left {
+            opacity: 0;
+            transform: translateX(-30px) scale(0.8);
+        }
+        .anim-fly-in-right {
+            opacity: 0;
+            transform: translateX(30px) scale(0.8);
+        }
+
+
+        .highlight {
+            stroke: #f59e0b; /* Amber/Orange for highlight */
+            stroke-width: 2.5;
+            /* filter: drop-shadow(0px 0px 4px #f59e0b); */
+        }
+
+        .highlight-strong {
+            stroke: #ef4444; /* Red for strong highlight */
+            stroke-width: 3;
+            /* filter: drop-shadow(0px 0px 5px #ef4444); */
+        }
+        
+        .highlight-accent { /* For emphasizing calculated parts */
+             fill-opacity: 0.8;
+             /* stroke: #10b981;  Emerald */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <div class="aspect-ratio-enforcer">
+            <div id="app-content">
+                <header><h1>数理习题动画展示</h1></header>
+                <main id="animationContainer">
+                    <svg id="drawingCanvas" viewBox="0 0 360 600"></svg> <!-- Adjusted viewBox -->
+                </main>
+                <div id="explanation">请点击“下一步”开始。</div>
+                <footer class="controls">
+                    <button id="prevBtn" disabled>上一步</button>
+                    <button id="nextBtn">下一步</button>
+                    <button id="resetBtn">重置</button>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const svgNS = "http://www.w3.org/2000/svg";
+        const canvas = document.getElementById('drawingCanvas');
+        const explanationDiv = document.getElementById('explanation');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        let currentStep = -1;
+        
+        // Adjusted for viewBox="0 0 360 600"
+        const rectHeight = 28;
+        const unitWidth = 12; 
+        const startX = 20; // Base X for the first set of elements
+        const yuanWidth = 4 * unitWidth; // Width for "元" block
+
+        const startY1 = 80;  // Top row
+        const startY2 = 150; // Bottom row
+        const textOffsetY = 0; // rectHeight / 2 if dominant-baseline not central
+
+        function createSVGElement(tag, attributes, textContent) {
+            const el = document.createElementNS(svgNS, tag);
+            for (const key in attributes) {
+                el.setAttribute(key, attributes[key]);
+            }
+            if (textContent) {
+                el.textContent = textContent;
+            }
+            el.classList.add('anim-initial'); // Default initial state for animation
+            return el;
+        }
+
+        function animateIn(element, delay = 0) {
+            setTimeout(() => {
+                if (element) { // Check if element still exists
+                    element.classList.remove('anim-initial', 'anim-fly-in-left', 'anim-fly-in-right');
+                    // Force reflow for transition to apply if classes were just added
+                    void element.offsetWidth; 
+                }
+            }, delay);
+        }
+        
+        function highlightElement(id, className = 'highlight', add = true) {
+            const el = document.getElementById(id);
+            if (el) {
+                if (add) el.classList.add(className);
+                else el.classList.remove(className);
+            }
+        }
+        
+        function animateAndRemove(elementId, duration = 600) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.style.opacity = '0';
+                element.style.transform = 'scale(0.5)';
+                setTimeout(() => element.remove(), duration);
+            }
+        }
+        
+        function updateTextContent(elementId, newText, className) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.style.opacity = '0'; // Fade out
+                setTimeout(() => {
+                    el.textContent = newText;
+                    if(className) el.setAttribute('class', className); // Reset class if needed
+                    el.style.opacity = '1'; // Fade in
+                }, 300); // Half of transition duration
+            }
+        }
+
+
+        const steps = [
+            // Step 0: 九和十六用两个长方形表示
+            {
+                explanation: "我们将用两个长方形分别表示数值 9 和 16。",
+                action: () => {
+                    const rect9 = createSVGElement('rect', {
+                        id: 'rect9', x: startX + yuanWidth, y: startY1, width: 9 * unitWidth, height: rectHeight, fill: '#8DBAFE' // Light Blue
+                    });
+                    const text9 = createSVGElement('text', {
+                        id: 'text9', x: startX + yuanWidth + (9 * unitWidth) / 2, y: startY1 + rectHeight / 2, class: 'label-text'
+                    }, '9');
+                    
+                    const rect16 = createSVGElement('rect', {
+                        id: 'rect16', x: startX + yuanWidth, y: startY2, width: 16 * unitWidth, height: rectHeight, fill: '#A3D8B0' // Light Green
+                    });
+                    const text16 = createSVGElement('text', {
+                        id: 'text16', x: startX + yuanWidth + (16 * unitWidth) / 2, y: startY2 + rectHeight / 2, class: 'label-text'
+                    }, '16');
+
+                    canvas.append(rect9, text9, rect16, text16);
+                    [rect9, text9, rect16, text16].forEach((el, i) => animateIn(el, i * 100));
+                }
+            },
+            // Step 1: 把十六一分为二 (九和七)
+            {
+                explanation: "现在，我们将16分解为9和7两个部分。",
+                action: () => {
+                    const oldRect16 = document.getElementById('rect16');
+                    const oldText16 = document.getElementById('text16');
+                    
+                    if (oldRect16) {
+                        oldRect16.style.width = (9 * unitWidth) + 'px'; // Animate width change
+                        oldRect16.id = 'rect16_9'; // Rename
+                        oldRect16.style.fill = '#A3D8B0'; // Keep green for the 9 part of 16
+                    }
+                    if (oldText16) {
+                        oldText16.setAttribute('x', startX + yuanWidth + (9 * unitWidth) / 2);
+                        oldText16.textContent = '9';
+                        oldText16.id = 'text16_9';
+                    }
+
+                    const rect16_7 = createSVGElement('rect', {
+                        id: 'rect16_7', x: startX + yuanWidth + 9 * unitWidth, y: startY2, width: 0, height: rectHeight, fill: '#FFD97D' // Light Yellow/Orange for 7
+                    });
+                    const text16_7 = createSVGElement('text', {
+                        id: 'text16_7', x: startX + yuanWidth + 9 * unitWidth + (7 * unitWidth) / 2, y: startY2 + rectHeight / 2, class: 'label-text'
+                    }, '7');
+                    
+                    canvas.append(rect16_7, text16_7);
+                    
+                    // Animate the new part appearing
+                    setTimeout(() => {
+                        if(rect16_7) rect16_7.style.width = (7 * unitWidth) + 'px';
+                        animateIn(rect16_7);
+                        animateIn(text16_7);
+                    }, 100); // Slight delay for width animation to be visible
+                    
+                    highlightElement('rect16_7');
+                    highlightElement('text16_7');
+                }
+            },
+            // Step 2: 同时与元相加
+            {
+                explanation: "我们引入一个未知数“元”，并将它分别加到9和分解后的16 (即9+7) 上。",
+                action: () => {
+                    const rectYuan1 = createSVGElement('rect', {
+                        id: 'rectYuan1', x: startX, y: startY1, width: yuanWidth, height: rectHeight, fill: '#FEB2B2' // Light Red/Pink for Yuan
+                    });
+                    rectYuan1.classList.add('anim-fly-in-left');
+                    const textYuan1 = createSVGElement('text', {
+                        id: 'textYuan1', x: startX + yuanWidth / 2, y: startY1 + rectHeight / 2, class: 'label-text'
+                    }, '元');
+                    textYuan1.classList.add('anim-fly-in-left');
+
+                    const rectYuan2 = createSVGElement('rect', {
+                        id: 'rectYuan2', x: startX, y: startY2, width: yuanWidth, height: rectHeight, fill: '#FEB2B2'
+                    });
+                     rectYuan2.classList.add('anim-fly-in-left');
+                    const textYuan2 = createSVGElement('text', {
+                        id: 'textYuan2', x: startX + yuanWidth / 2, y: startY2 + rectHeight / 2, class: 'label-text'
+                    }, '元');
+                    textYuan2.classList.add('anim-fly-in-left');
+                    
+                    canvas.append(rectYuan1, textYuan1, rectYuan2, textYuan2);
+                    [rectYuan1, textYuan1, rectYuan2, textYuan2].forEach((el, i) => animateIn(el, i * 150));
+                }
+            },
+            // Step 3: 表示元加九对应二（份），元加十六对应三（份）
+            {
+                explanation: "假设 (元+9) 代表两份的量，而 (元+16) 代表三份的量。",
+                action: () => {
+                    const endX1 = startX + yuanWidth + 9 * unitWidth + 10; // After 元+9
+                    const textRatio2 = createSVGElement('text', {
+                        id: 'textRatio2', x: endX1 + 40, y: startY1 + rectHeight / 2, class:'calculation-text'
+                    }, '→ 2份');
+                    textRatio2.classList.add('anim-fly-in-right');
+                    
+                    const endX2 = startX + yuanWidth + 16 * unitWidth + 10; // After 元+16
+                    const textRatio3 = createSVGElement('text', {
+                        id: 'textRatio3', x: endX2 + 40, y: startY2 + rectHeight / 2, class:'calculation-text'
+                    }, '→ 3份');
+                    textRatio3.classList.add('anim-fly-in-right');
+
+                    canvas.append(textRatio2, textRatio3);
+                    animateIn(textRatio2, 100);
+                    animateIn(textRatio3, 250);
+                }
+            },
+            // Step 4: 这里就是一份，一份是七。
+            {
+                explanation: "比较 (元+16) 和 (元+9)，它们的差是7。这对应于 (3份 - 2份) = 1份。所以，1份等于7。",
+                action: () => {
+                    highlightElement('rect16_7', 'highlight-strong');
+                    highlightElement('text16_7', 'highlight-strong');
+                    
+                    const textOnePartIsSeven = createSVGElement('text', {
+                        id: 'textOnePartIsSeven', 
+                        x: startX + yuanWidth + 9 * unitWidth + (7*unitWidth)/2 , 
+                        y: startY2 + rectHeight + 25, 
+                        class:'calculation-text',
+                        fill: '#D9534F' // Emphasize color
+                    }, '1份 = 7');
+                    canvas.appendChild(textOnePartIsSeven);
+                    animateIn(textOnePartIsSeven, 200);
+                }
+            },
+            // Step 5: 两份就是十四。
+            {
+                explanation: "既然1份是7，那么2份就是 2 × 7 = 14。",
+                action: () => {
+                    highlightElement('rectYuan1', 'highlight');
+                    highlightElement('rect9', 'highlight');
+                    highlightElement('textRatio2', 'highlight-strong');
+                    
+                    const textTwoPartsIsFourteen = createSVGElement('text', {
+                        id: 'textTwoPartsIsFourteen', 
+                        x: startX + yuanWidth + 9 * unitWidth + 60, 
+                        y: startY1 + rectHeight / 2 + 30, 
+                        class:'calculation-text', 
+                        fill: '#4A90E2'
+                    }, '2份 = 14');
+                    canvas.appendChild(textTwoPartsIsFourteen);
+                    animateIn(textTwoPartsIsFourteen, 100);
+                    updateTextContent('textRatio2', '→ 2份 = 14');
+                }
+            },
+            // Step 6: 元 + 9 = 14, 所以 元 = 14 - 9 = 5
+            {
+                explanation: "因为 (元+9) 等于2份 (即14)，所以 元 = 14 - 9 = 5。",
+                action: () => {
+                    ['rectYuan1', 'textYuan1', 'rect9', 'text9'].forEach(id => highlightElement(id, 'highlight-strong'));
+                    
+                    const textYuanCalc = createSVGElement('text', {
+                        id: 'textYuanCalc', 
+                        x: startX + (yuanWidth + 9*unitWidth)/2 , 
+                        y: startY1 - 25, 
+                        class:'calculation-text'
+                    }, '元 + 9 = 14  =>  元 = 5');
+                    textYuanCalc.style.fill = '#28A745'; // Green for calculation result
+                    canvas.appendChild(textYuanCalc);
+                    animateIn(textYuanCalc, 100);
+                }
+            },
+            // Step 7: 五就是最终答案。
+            {
+                explanation: "所以，“元”的值是5。这就是最终答案！",
+                action: () => {
+                    updateTextContent('textYuan1', '5', 'label-text highlight-strong');
+                    updateTextContent('textYuan2', '5', 'label-text highlight-strong');
+                    highlightElement('rectYuan1', 'highlight-strong');
+                    highlightElement('rectYuan2', 'highlight-strong');
+                    
+                    document.getElementById('textYuan1').style.fill = '#28A745';
+                    document.getElementById('textYuan2').style.fill = '#28A745';
+
+
+                    const finalAnswerText = createSVGElement('text', {
+                        id: 'finalAnswerText', 
+                        x: 360 / 2, // Center of viewBox
+                        y: startY2 + rectHeight + 70, // Below other elements
+                        class:'final-answer-text'
+                    }, '最终答案: 元 = 5');
+                    finalAnswerText.style.fill = '#D9534F'; // Prominent color
+                    canvas.appendChild(finalAnswerText);
+                    animateIn(finalAnswerText, 300);
+                }
+            }
+        ];
+
+        function clearCanvas() {
+            // Remove specific animated elements, not all children if some are persistent overlays
+            const elementIdsToRemove = [
+                'rect9', 'text9', 'rect16', 'text16', 'rect16_9', 'text16_9', 'rect16_7', 'text16_7',
+                'rectYuan1', 'textYuan1', 'rectYuan2', 'textYuan2', 'textRatio2', 'textRatio3',
+                'textOnePartIsSeven', 'textTwoPartsIsFourteen', 'textYuanCalc', 'finalAnswerText'
+            ];
+            elementIdsToRemove.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.remove();
+            });
+            // Or simpler for this structure:
+            // while (canvas.firstChild) {
+            //    canvas.removeChild(canvas.firstChild);
+            // }
+        }
+        
+        function removeAllHighlights() {
+            document.querySelectorAll('.highlight, .highlight-strong, .highlight-accent').forEach(el => {
+                el.classList.remove('highlight', 'highlight-strong', 'highlight-accent');
+            });
+        }
+
+        function renderStep(stepIndex) {
+            if (stepIndex >= 0 && stepIndex < steps.length) {
+                clearCanvas(); // Clear previous step's elements
+                removeAllHighlights(); // Clear all highlights
+
+                // Render all steps up to and including the current one
+                // For simplicity in this example, only the current step's 'action' is animated.
+                // A more robust solution would re-render previous steps in their final state instantly.
+                // This version just calls the action for the target step after clearing.
+                
+                // To show previous states correctly without re-animating them:
+                // We need to re-think this. For now, let's make each step self-contained or build on DOM.
+                // The current `clearCanvas` and then call `action` only works if `action` rebuilds everything it needs.
+                // Let's adjust clearCanvas to be more specific or rely on IDs.
+                // The current steps are designed to add elements, so clearCanvas must be effective.
+                
+                // For a "play up to this step" effect:
+                for (let i = 0; i <= stepIndex; i++) {
+                    const step = steps[i];
+                    if (i < stepIndex) {
+                        // For past steps, execute them quickly, perhaps without full animation
+                        // This part is tricky. A simple way: current model only animates the delta.
+                        // So, when jumping, we need to ensure the DOM reflects the state at step `i`.
+                        // The current structure where `action` adds elements means we must call actions sequentially.
+                        // Let's assume step actions are cumulative for drawing, and only the current one fully animates.
+                         if (document.getElementById('rect9') && i > 0) { /* Quick check if already drawn*/} else {step.action();}
+                        // This naive check isn't great. Better: each step ensures its elements and states.
+                    } else { // Current step: execute with full animation
+                        step.action();
+                    }
+                    explanationDiv.textContent = step.explanation;
+                }
+            }
+            updateButtons();
+        }
+        
+        // Revised renderStep for better state management with current step functions
+        function playToStep(targetStepIndex) {
+            clearCanvas(); // Full clear
+            removeAllHighlights();
+
+            for (let i = 0; i <= targetStepIndex; i++) {
+                const step = steps[i];
+                // Disable transitions for instant rendering of past steps
+                if (i < targetStepIndex) {
+                    const tempFunc = (el, delay) => { if(el) el.classList.remove('anim-initial', 'anim-fly-in-left', 'anim-fly-in-right'); };
+                    const originalAnimateIn = window.animateIn; // Assuming animateIn is global or accessible
+                    window.animateIn = tempFunc; // Temporarily override animateIn
+                    step.action();
+                    window.animateIn = originalAnimateIn; // Restore
+                } else { // Current step plays with animations
+                    step.action();
+                }
+                explanationDiv.textContent = step.explanation;
+            }
+            updateButtons();
+        }
+
+
+        function updateButtons() {
+            prevBtn.disabled = currentStep <= 0;
+            nextBtn.disabled = currentStep >= steps.length - 1;
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                // Instead of replaying all, just apply the current step's action
+                // This assumes steps are additive or correctly modify existing DOM from previous steps
+                removeAllHighlights(); // Clear previous highlights before new step's highlights
+                const step = steps[currentStep];
+                step.action();
+                explanationDiv.textContent = step.explanation;
+                updateButtons();
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentStep > 0) {
+                currentStep--;
+                playToStep(currentStep); // Replay up to the new current step
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            currentStep = -1; // Will be incremented to 0 by nextBtn logic
+            clearCanvas();
+            removeAllHighlights();
+            explanationDiv.textContent = "请点击“下一步”开始。";
+            // Call next to go to step 0
+             if (currentStep < steps.length - 1) { // Manually trigger first step
+                currentStep++;
+                const step = steps[currentStep];
+                step.action();
+                explanationDiv.textContent = step.explanation;
+            }
+            updateButtons();
+        });
+        
+        // Initial call to display the first step
+        // Simulating a "Next" click to go from -1 to 0
+        if (currentStep < steps.length - 1) {
+            currentStep++;
+            const step = steps[currentStep];
+            explanationDiv.textContent = step.explanation;
+            step.action(); // Execute the first step's actions
+            updateButtons();
+        }
+
+    </script>
+</body>
+</html>
